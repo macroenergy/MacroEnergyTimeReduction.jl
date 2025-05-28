@@ -23,6 +23,8 @@ function cluster_kmedoids(ClusteringInputDF::DataFrame, NClusters::Int, nIters::
     W = R.counts # get the cluster sizes - W for Weights
     M = R.medoids # get the cluster centers - M for Medoids
 
+    println("Kmedoids approach completed successfully.")
+
     return R, A, W, M, DistMatrix
 
 end

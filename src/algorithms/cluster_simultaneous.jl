@@ -183,23 +183,9 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
 
     # Correct distance matrix computation
     DistMatrix = pairwise(Euclidean(), Matrix(ClusteringInputDF_T), dims=2)
-    println("Type of M: ", typeof(M))
-    println("Shape of M: ", size(M))
 
-    println("Simultaneous approach completed successfully.")
-    println("\n==== RMSE between Original Series and Their Representative Weeks ====")
-    all_rmse = Float64[]
-    for (i, assigned_rep_idx) in enumerate(A)  # A: assignments (length 52), values in 1..NClusters
-        rep_week_idx = M[assigned_rep_idx]  # Actual representative column index in ClusteringInputDF
-        original = Float32.(ClusteringInputDF[:, i])
-        representative = Float32.(ClusteringInputDF[:, rep_week_idx])
-        rmse = rmse_score(original, representative)
-        println("Week $i → Rep Week $rep_week_idx | RMSE: $rmse")
-        push!(all_rmse, rmse)
-    end
+    println("Simultaneous autoencoder approach completed successfully.")
     
-    println("\n==== Average RMSE across all weeks: ", mean(all_rmse))
-
     return R, A, W, M, DistMatrix
 end
 

@@ -150,18 +150,7 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     # Correct distance matrix computation
     DistMatrix = pairwise(Euclidean(), Matrix(ClusteringInputDF_T), dims=2)
 
-    println("\n==== RMSE between Original Series and Their Representative Weeks ====")
-    all_rmse = Float64[]
-    for (i, assigned_rep_idx) in enumerate(A)  # A: assignments (length 52), values in 1..NClusters
-        rep_week_idx = M[assigned_rep_idx]  # Actual representative column index in ClusteringInputDF
-        original = Float32.(ClusteringInputDF[:, i])
-        representative = Float32.(ClusteringInputDF[:, rep_week_idx])
-        rmse = rmse_score(original, representative)
-        println("Week $i → Rep Week $rep_week_idx | RMSE: $rmse")
-        push!(all_rmse, rmse)
-    end
-    
-    println("\n==== Average RMSE across all weeks: ", mean(all_rmse))
+    println("Sequential autoencoder approach completed successfully.")
 
     return R, A, W, M, DistMatrix
 end

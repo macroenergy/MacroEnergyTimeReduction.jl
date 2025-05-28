@@ -30,5 +30,7 @@ function cluster_kmeans(ClusteringInputDF::DataFrame, NClusters::Int, nIters::In
         push!(M,argmin(dists))
     end
 
+    println("Kmeans approach completed successfully.")
+
     return R, A, W, M, DistMatrix
 end
