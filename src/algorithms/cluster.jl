@@ -20,35 +20,37 @@ function cluster(ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters:
     end
 
     # Print details about the returned data
-    println("\n==== CLUSTERING OUTPUT DETAILS ====")
+    if v println("\n==== CLUSTERING OUTPUT DETAILS ====")
 
-    println("\n** M (Cluster Centers or Medoids) **")
-    println("Shape: (", length(M), ")")
-    println("Type: ", typeof(M))
-    println("Values: ", M)
+        println("\n** M (Cluster Centers or Medoids) **")
+        println("Shape: (", length(M), ")")
+        println("Type: ", typeof(M))
+        println("Values: ", M)
 
-    println("\n** R (Clustering Model) **")
-    println("Type: ", typeof(R))
-    println("R Centers Shape: ", size(R.centers))  # (n_features, NClusters)
-    println("R Assignments Shape: ", size(R.assignments))  # (n_samples,)
-    println("R Counts Shape: ", size(R.counts))  # (NClusters,)
-    println("R Total Cost: ", R.totalcost)  # Scalar value
+        println("\n** R (Clustering Model) **")
+        println("Type: ", typeof(R))
+        println("R Centers Shape: ", size(R.centers))  # (n_features, NClusters)
+        println("R Assignments Shape: ", size(R.assignments))  # (n_samples,)
+        println("R Counts Shape: ", size(R.counts))  # (NClusters,)
+        println("R Total Cost: ", R.totalcost)  # Scalar value
 
-    println("\n** A (Assignments) **")
-    println("Shape: (", length(A), ")")
-    println("Type: ", typeof(A))
-    println("Values: ", A)
+        println("\n** A (Assignments) **")
+        println("Shape: (", length(A), ")")
+        println("Type: ", typeof(A))
+        println("Values: ", A)
 
-    println("\n** W (Cluster Sizes) **")
-    println("Shape: (", length(W), ")")
-    println("Type: ", typeof(W))
-    println("Values: ", W)
+        println("\n** W (Cluster Sizes) **")
+        println("Shape: (", length(W), ")")
+        println("Type: ", typeof(W))
+        println("Values: ", W)
 
 
-    println("\n** DistMatrix (Distance Matrix) **")
-    println("Shape: (", size(DistMatrix), ")")
-    println("Type: ", typeof(DistMatrix))
-    println("First 5 rows:\n", DistMatrix[1:min(5, size(DistMatrix, 1)), :])
+        println("\n** DistMatrix (Distance Matrix) **")
+        println("Shape: (", size(DistMatrix), ")")
+        println("Type: ", typeof(DistMatrix))
+        println("First 5 rows:\n", DistMatrix[1:min(5, size(DistMatrix, 1)), :])
+    end
+    
     return [R, A, W, M, DistMatrix]
     
 end
