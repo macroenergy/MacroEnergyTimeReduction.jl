@@ -16,15 +16,17 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
         batches
     end
     # Transpose input data to align with correct time series clustering
-    ClusteringInputDF_T = Matrix(ClusteringInputDF)'  # Now shape is (52, 672)
+    ClusteringInputDF_T = Matrix(ClusteringInputDF)' 
 
-    println("Shape of ClusteringInputDF (before transpose): ", size(ClusteringInputDF))  
-    println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))  # (52, 672)
+    if v
+        println("Shape of ClusteringInputDF (before transpose): ", size(ClusteringInputDF))  
+        println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))
+    end
 
     # Define model hyperparameters
     input_dim = 1
-    timesteps = size(ClusteringInputDF_T, 2)  # 672 (time steps)
-    n_series = size(ClusteringInputDF_T, 1)  # 52 (time series)
+    timesteps = size(ClusteringInputDF_T, 2)
+    n_series = size(ClusteringInputDF_T, 1)
     n_filters = 30
     kernel_size = 5
     stride = 3
@@ -37,12 +39,16 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     # Encoder and Decoder definition
     encoder_net = Chain(
         x -> begin
-            x_cwn = permutedims(x, (3, 2, 1))  # (1, T, N) = (1, 672, 52)
+            x_cwn = permutedims(x, (3, 2, 1))
             y = Conv((kernel_size,), input_dim=>n_filters; stride=(stride,), pad=(padding,))(x_cwn)
-            y_ncw = permutedims(y, (3, 2, 1))  # (N, n_filters, new_timesteps) = (52, 30, ?)
+            y_ncw = permutedims(y, (3, 2, 1))
             z = leakyrelu.(y_ncw)
             flatten_y = flatten(permutedims(z, (3, 2, 1)))
-            println("Shape of flatten_y: ", size(flatten_y))  # Debugging
+
+            if v
+                println("Shape of flatten_y: ", size(flatten_y))
+            end
+
             return Dense(size(flatten_y, 1), latent_dim)(flatten_y)
         end
     )
@@ -64,9 +70,12 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     end
 
     # Reshape input for the model
-    data_array = Float32.(ClusteringInputDF_T)  # (52, 672)
-    data_ncw = reshape(data_array, :, 1, size(data_array, 2))  # (N, 1, T), now (52, 1, 672)
-    println("Shape of data_ncw: ", size(data_ncw))
+    data_array = Float32.(ClusteringInputDF_T)
+    data_ncw = reshape(data_array, :, 1, size(data_array, 2))  # (N, 1, T)
+
+    if v
+        println("Shape of data_ncw: ", size(data_ncw))
+    end
 
     
 
@@ -82,10 +91,16 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
         nbatches = length(batches)
 
         for batch_data in batches
-            println("Shape of batch_data: ", size(batch_data))
+            if v
+                println("Shape of batch_data: ", size(batch_data))
+            end
+
             encoded_data = encoder_net(batch_data)
             decoded_data = decoder_net(encoded_data)
-            println("Shape of decoded_data: ", size(decoded_data))
+
+            if v
+                println("Shape of decoded_data: ", size(decoded_data))
+            end
 
             # Compute autoencoder loss (MSE reconstruction loss)
             function loss_fn_seq()
@@ -100,32 +115,24 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
 
         epoch_loss = epoch_loss_acc / nbatches
         push!(training_loss, epoch_loss)
-        println("Epoch $epoch/$epochs, Autoencoder Loss: $epoch_loss")
+
+        if v
+            println("Epoch $epoch/$epochs, Autoencoder Loss: $epoch_loss")
+        end
     end
 
     println("Autoencoder Training Completed.")
 
     # Encode entire dataset after training
-    encoded_data_all = encoder_net(data_ncw)  # (52, 50)
+    encoded_data_all = encoder_net(data_ncw)
 
     # Perform KMeans clustering on encoded data
     R = kmeans(Matrix(encoded_data_all), NClusters, init=:kmcen)
     centroids_final = R.centers
     labels_final = R.assignments
 
-
-    # Find representative medoids
-    #M = []
-    #ClusteringInputDF_indices = [parse(Int64, string(names(ClusteringInputDF)[i])) for i in 1:size(ClusteringInputDF, 2)]
-
-    #for i in 1:NClusters
-        #dists = [euclidean(centroids_final[:, i], encoded_data_all[:, j]) for j in 1:size(encoded_data_all, 2)]
-        #closest_idx = argmin(dists)
-        #push!(M, ClusteringInputDF_indices[closest_idx])  
-    #end
-
     M = []
-    ClusteringInputDF_indices = collect(1:size(ClusteringInputDF, 2))  # [1, 2, ..., 52]
+    ClusteringInputDF_indices = collect(1:size(ClusteringInputDF, 2))
 
     for i in 1:NClusters
         cluster_idxs = findall(x -> x == i, labels_final)  # indices of weeks in cluster i
@@ -140,8 +147,6 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
             push!(M, -1)  # fallback if a cluster is empty (shouldn’t happen)
         end
     end
-    
-    #M = sort(M)
 
     # Compute outputs
     A = labels_final

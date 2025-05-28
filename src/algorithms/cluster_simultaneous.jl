@@ -17,15 +17,17 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
     end
 
     # Transpose input data to align with correct time series clustering
-    ClusteringInputDF_T = Matrix(ClusteringInputDF)'  # Now shape is (52, 672)
+    ClusteringInputDF_T = Matrix(ClusteringInputDF)'
 
-    println("Shape of ClusteringInputDF (before transpose): ", size(ClusteringInputDF))  
-    println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))  # (52, 672)
+    if v
+        println("Shape of ClusteringInputDF (before transpose): ", size(ClusteringInputDF))  
+        println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))
+    end
 
     # Define model hyperparameters
     input_dim = 1
-    timesteps = size(ClusteringInputDF_T, 2)  # 672 (time steps)
-    n_series = size(ClusteringInputDF_T, 1)  # 52 (time series)
+    timesteps = size(ClusteringInputDF_T, 2)
+    n_series = size(ClusteringInputDF_T, 1)
     n_filters = 30
     kernel_size = 5
     stride = 3
@@ -36,18 +38,22 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
     batch_size = 100
 
     # Reshape input for the model
-    data_array = Float32.(ClusteringInputDF_T)  # (52, 672)
-    data_ncw = reshape(data_array, :, 1, size(data_array, 2))  # (N, 1, T), now (52, 1, 672)
+    data_array = Float32.(ClusteringInputDF_T)
+    data_ncw = reshape(data_array, :, 1, size(data_array, 2))  # (N, 1, T)
 
     # Encoder and Decoder definition
     encoder_net = Chain(
         x -> begin
-            x_cwn = permutedims(x, (3, 2, 1))  # (1, T, N) = (1, 672, 52)
+            x_cwn = permutedims(x, (3, 2, 1))  # (1, T, N)
             y = Conv((kernel_size,), input_dim=>n_filters; stride=(stride,), pad=(padding,))(x_cwn)
-            y_ncw = permutedims(y, (3, 2, 1))  # (N, n_filters, new_timesteps) = (52, 30, ?)
+            y_ncw = permutedims(y, (3, 2, 1))  # (N, n_filters, new_timesteps)
             z = leakyrelu.(y_ncw)
             flatten_y = flatten(permutedims(z, (3, 2, 1)))
-            println("Shape of flatten_y: ", size(flatten_y))  # Debugging
+
+            if v
+                println("Shape of flatten_y: ", size(flatten_y))  # Debugging
+            end
+
             return Dense(size(flatten_y, 1), latent_dim)(flatten_y)
         end
     )
@@ -95,16 +101,27 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
         batches = get_batches_sim(data_ncw, batch_size)
         nbatches = length(batches)
         for batch_data in batches
-            println("Shape of batch_data BEFORE KMeans: ", size(batch_data))
-            encoded_data = encoder_net(batch_data)  # (N, 50)
+            if v
+                println("Shape of batch_data BEFORE KMeans: ", size(batch_data))
+            end
+
+            encoded_data = encoder_net(batch_data)
             decoded_data = decoder_net(encoded_data)
-            println("Shape of decoded_data BEFORE KMeans: ", size(decoded_data))
-            println("Shape of encoded_data BEFORE KMeans: ", size(encoded_data))
+
+            if v
+                println("Shape of decoded_data BEFORE KMeans: ", size(decoded_data))
+                println("Shape of encoded_data BEFORE KMeans: ", size(encoded_data))
+            end
+
             # KMeans clustering on encoded data
             centroids, labels = run_kmeans(encoded_data, NClusters)
             encoded_data = encoded_data'
             centroids = centroids'
-            println("Shape of centroids AFTER KMeans: ", size(centroids))
+
+            if v
+                println("Shape of centroids AFTER KMeans: ", size(centroids))
+            end
+
             labels = Int.(labels)
             # Compute combined loss
             function loss_fn_sim()
@@ -118,16 +135,19 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
 
         epoch_loss = epoch_loss_acc / nbatches
         push!(training_loss, epoch_loss)
-        println("Epoch $epoch/$epochs, Combined Loss: $epoch_loss")
+
+        if v
+            println("Epoch $epoch/$epochs, Combined Loss: $epoch_loss")
+        end
     end
 
     # Run clustering on full dataset
-    encoded_data_all = encoder_net(data_ncw)  # (52, 50)
+    encoded_data_all = encoder_net(data_ncw)
     centroids_final, labels_final = run_kmeans(encoded_data_all, NClusters)
 
     # Generate reduced dataset
     function get_reduced_df(data, encoder_net, k)
-        encoded_data = encoder_net(data)  # (52, 50)
+        encoded_data = encoder_net(data)
         centroids, labels = run_kmeans(encoded_data, k)
         labels = Int.(round.(labels))
         reduced_vectors = Array{Float32}(undef, k, 1, timesteps)
@@ -135,8 +155,8 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
         for c in 1:k
             cluster_idxs = findall(x -> x == c, labels)
             if length(cluster_idxs) > 0
-                cluster_data = data[cluster_idxs, :, :]  # (count, 1, 672)
-                centroid = mean(cluster_data, dims=1)  # (1,1,672)
+                cluster_data = data[cluster_idxs, :, :]
+                centroid = mean(cluster_data, dims=1)
                 dists = [sum((cluster_data[i, :, :] .- centroid).^2) for i in 1:length(cluster_idxs)]
                 closest_idx = argmin(dists)
                 reduced_vectors[c, :, :] = cluster_data[closest_idx, :, :]
@@ -148,19 +168,13 @@ function cluster_simultaneous(ClusteringInputDF::DataFrame, NClusters::Int, nIte
     end
 
     reduced_df = get_reduced_df(data_ncw, encoder_net, NClusters)
-    println("Shape of reduced_df: ", size(reduced_df))
 
-    # Find representative medoids
-    #M = []
-    #ClusteringInputDF_indices = [parse(Int64, string(names(ClusteringInputDF)[i])) for i in 1:size(ClusteringInputDF, 2)]
+    if v
+        println("Shape of reduced_df: ", size(reduced_df))
+    end
 
-    #for i in 1:NClusters
-        #dists = [euclidean(centroids_final[:, i], encoded_data_all[:, j]) for j in 1:size(encoded_data_all, 2)]
-        #closest_idx = argmin(dists)
-        #push!(M, ClusteringInputDF_indices[closest_idx])  
-    #end
     M = []
-    ClusteringInputDF_indices = collect(1:size(ClusteringInputDF, 2))  # [1, 2, ..., 52]
+    ClusteringInputDF_indices = collect(1:size(ClusteringInputDF, 2))
 
     for i in 1:NClusters
         cluster_idxs = findall(x -> x == i, labels_final)  # indices of weeks in cluster i
