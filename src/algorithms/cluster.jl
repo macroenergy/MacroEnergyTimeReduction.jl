@@ -5,8 +5,10 @@ Get representative periods using cluster centers from various algorithms
 """
 function cluster(ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
 
-    println("Shape of ClusteringInputDF: ", size(ClusteringInputDF))  #number of rows number of colummn
-
+    if v
+        println("Shape of ClusteringInputDF: ", size(ClusteringInputDF))  #number of rows number of colummn
+    end
+    
     if ClusterMethod == "kmeans"
         R, A, W, M, DistMatrix = cluster_kmeans(ClusteringInputDF, NClusters, nIters, v)
     elseif ClusterMethod == "kmedoids"
