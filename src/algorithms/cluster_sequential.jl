@@ -31,7 +31,7 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     latent_dim = 40
     lambda_param = 0.3
     padding = 1
-    epochs = 10
+    epochs = 50
     batch_size = 100
 
     # Encoder and Decoder definition
@@ -43,9 +43,9 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
             z = leakyrelu.(y_ncw)
             flatten_y = flatten(permutedims(z, (3, 2, 1)))
 
-            if v
-                println("Shape of flatten_y: ", size(flatten_y))
-            end
+
+            println("Shape of flatten_y: ", size(flatten_y))
+
 
             return Dense(size(flatten_y, 1), latent_dim)(flatten_y)
         end
@@ -92,6 +92,9 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
 
 
             encoded_data = encoder_net(batch_data)
+            
+            println("Shape of encoded_data: ", size(encoded_data))
+
             decoded_data = decoder_net(encoded_data)
 
 
