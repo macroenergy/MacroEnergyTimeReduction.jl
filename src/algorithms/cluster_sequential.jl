@@ -18,10 +18,8 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     # Transpose input data to align with correct time series clustering
     ClusteringInputDF_T = Matrix(ClusteringInputDF)' 
 
-    if v
-        println("Shape of ClusteringInputDF (before transpose): ", size(ClusteringInputDF))  
-        println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))
-    end
+    println("Shape of ClusteringInputDF (before transpose): ", size(ClusteringInputDF))  
+    println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))
 
     # Define model hyperparameters
     input_dim = 1
@@ -73,9 +71,7 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     data_array = Float32.(ClusteringInputDF_T)
     data_ncw = reshape(data_array, :, 1, size(data_array, 2))  # (N, 1, T)
 
-    if v
-        println("Shape of data_ncw: ", size(data_ncw))
-    end
+    println("Shape of data_ncw: ", size(data_ncw))
 
     
 
@@ -91,16 +87,16 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
         nbatches = length(batches)
 
         for batch_data in batches
-            if v
-                println("Shape of batch_data: ", size(batch_data))
-            end
+
+            println("Shape of batch_data: ", size(batch_data))
+
 
             encoded_data = encoder_net(batch_data)
             decoded_data = decoder_net(encoded_data)
 
-            if v
-                println("Shape of decoded_data: ", size(decoded_data))
-            end
+
+            println("Shape of decoded_data: ", size(decoded_data))
+
 
             # Compute autoencoder loss (MSE reconstruction loss)
             function loss_fn_seq()
@@ -116,9 +112,8 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
         epoch_loss = epoch_loss_acc / nbatches
         push!(training_loss, epoch_loss)
 
-        if v
-            println("Epoch $epoch/$epochs, Autoencoder Loss: $epoch_loss")
-        end
+        println("Epoch $epoch/$epochs, Autoencoder Loss: $epoch_loss")
+
     end
 
     println("Autoencoder Training Completed.")
