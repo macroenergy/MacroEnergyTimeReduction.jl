@@ -57,18 +57,26 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
 
     # Encoder and Decoder definition
     encoder_net = Chain(
-        x -> (println("Input: ", size(x)); x),
+        # Input shape: (batch_size, channels=1, timesteps)
+        x -> permutedims(x, (3, 2, 1)),  # (N, 1, T) → (T, 1, N) for Conv1D
+        
+        # Convolution layer (output will be (T', n_filters, N))
+        Conv((kernel_size,), input_dim => n_filters, stride=stride, pad=padding),
+        
+        # Return to batch-first: (N, n_filters, T')
         x -> permutedims(x, (3, 2, 1)),
-        x -> (println("After permute1: ", size(x)); x),
-        Conv((kernel_size,), input_dim => n_filters, stride=(stride,), pad=(padding,)),
-        x -> (println("After conv: ", size(x)); x),
-        x -> permutedims(x, (3, 2, 1)),
-        x -> (println("After permute2: ", size(x)); x),
+        
+        # Activation
         x -> leakyrelu.(x),
-        x -> reshape(x, n_filters * conv_output_length, :),
-        x -> (println("After reshape: ", size(x)); x),
-        x -> permutedims(x, (2, 1)),
-        x -> (println("Before Dense: ", size(x)); x),
+        
+        # Dynamic flattening to (features, batch_size)
+        x -> begin
+            features = n_filters * conv_output_length
+            batch_size = size(x, 1)
+            reshape(x, features, batch_size)  # (features, batch)
+        end,
+        
+        # Final dense layer with calculated input size
         Dense(n_filters * conv_output_length, latent_dim)
     )
 
