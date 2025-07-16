@@ -34,12 +34,16 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     latent_dim = AE_params["latent_dim"]
     padding = AE_params["padding"]
     epochs = AE_params["epochs"]
+    batch_size = AE_params["custom_batch_size"]
 
-    #Set training batch size to be same as series length or custom size
-    if AE_params["batch_size_use_n_series"] == 1
-        batch_size = n_series
+    scaling_method = myTDRsetup["ScalingMethod"]
+
+    if scaling_method == "N"
+        decoder_activation = sigmoid  # sigmoid for normalized (0–1)
+    elseif scaling_method == "S"
+        decoder_activation = identity  # linear (no activation) for standardized (mean 0, std 1)
     else
-        batch_size = AE_params["custom_batch_size"]
+        error("Unsupported ScalingMethod. Use 'N' for normalization or 'S' for standardization.")
     end
 
     println("Autoencoder parameters:")
@@ -82,7 +86,7 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
 
     decoder_net = Chain(
         Dense(latent_dim, timesteps * input_dim),
-        relu,
+        decoder_activation,
         x -> begin
             total_size = length(x)  # Total number of elements in the array
             new_batch_size = total_size ÷ (input_dim * timesteps)
