@@ -119,8 +119,6 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
 
             println("Shape of decoded_data: ", size(decoded_data))
 
-            println(decoded_data)
-
             # Compute autoencoder loss (MSE reconstruction loss)
             function loss_fn_seq()
                 mean((batch_data .- decoded_data).^2)
