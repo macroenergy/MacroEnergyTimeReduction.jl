@@ -4,7 +4,7 @@
 Get representative periods using cluster centers from autoencoder sequential method
 """
 
-function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
+function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
     function get_batches_seq(data, batch_size)
         N = size(data, 1)
         idxs = randperm(N)
@@ -22,17 +22,26 @@ function cluster_sequential(ClusteringInputDF::DataFrame, NClusters::Int, nIters
     println("Shape of ClusteringInputDF_T (after transpose): ", size(ClusteringInputDF_T))
 
     # Define model hyperparameters
-    input_dim = 1
     timesteps = size(ClusteringInputDF_T, 2)
     n_series = size(ClusteringInputDF_T, 1)
-    n_filters = 30
-    kernel_size = 5
-    stride = 3
-    latent_dim = 40
-    lambda_param = 0.3
-    padding = 1
-    epochs = 50
-    batch_size = 100
+
+    # Autoencoder hyperparameters from settings
+    AE_params = myTDRsetup["AutoEncoder"]
+    input_dim = AE_params["input_dim"]
+    n_filters = AE_params["n_filters"]
+    kernel_size = AE_params["kernel_size"]
+    stride = AE_params["stride"]
+    latent_dim = AE_params["latent_dim"]
+    padding = AE_params["padding"]
+    epochs = AE_params["epochs"]
+
+    #Set training batch size to be same as series length or custom size
+    if AE_params["batch_size_use_n_series"] == 1
+        batch_size = n_series
+    else
+        batch_size = AE_params["custom_batch_size"]
+    end
+
 
     # Encoder and Decoder definition
     encoder_net = Chain(

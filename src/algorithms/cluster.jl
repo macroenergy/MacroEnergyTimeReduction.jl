@@ -3,7 +3,7 @@
 
 Get representative periods using cluster centers from various algorithms
 """
-function cluster(ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
+function cluster(myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
 
     if v
         println("Shape of ClusteringInputDF: ", size(ClusteringInputDF))  #number of rows number of colummn
@@ -14,7 +14,7 @@ function cluster(ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters:
     elseif ClusterMethod == "kmedoids"
         R, A, W, M, DistMatrix = cluster_kmedoids(ClusteringInputDF, NClusters, nIters, v)
     elseif ClusterMethod == "sequential"
-        R, A, W, M, DistMatrix = cluster_sequential(ClusteringInputDF, NClusters, nIters, v)
+        R, A, W, M, DistMatrix = cluster_sequential(myTDRsetup, ClusteringInputDF, NClusters, nIters, v)
     elseif ClusterMethod == "simultaneous"
         R, A, W, M, DistMatrix = cluster_simultaneous(ClusteringInputDF, NClusters, nIters, v)
     else
