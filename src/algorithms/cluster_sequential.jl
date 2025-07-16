@@ -54,21 +54,14 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
 
     # Encoder and Decoder definition
     encoder_net = Chain(
-        x -> begin
-            x_cwn = permutedims(x, (3, 2, 1))
-            y = Conv((kernel_size,), input_dim=>n_filters; stride=(stride,), pad=(padding,))(x_cwn)
-            y_ncw = permutedims(y, (3, 2, 1))
-            z = leakyrelu.(y_ncw)
-            flatten_y = flatten(permutedims(z, (3, 2, 1)))
-
-
-            println("Shape of flatten_y: ", size(flatten_y))
-
-
-            return Dense(size(flatten_y, 1), latent_dim)(flatten_y)
-        end
+        x -> permutedims(x, (3, 2, 1)),  # (N, C, T) -> (T, C, N)
+        Conv((kernel_size,), input_dim=>n_filters, stride=(stride,), pad=(padding,)),
+        x -> permutedims(x, (3, 2, 1)),  # Back to (N, C, T')
+        x -> leakyrelu.(x),
+        x -> flatten(x),  # Now flatten properly
+        Dense(n_filters * div(timesteps + 2*padding - kernel_size, stride) + 1, latent_dim)
     )
-
+    
     decoder_net = Chain(
         Dense(latent_dim, timesteps * input_dim),
         relu,
