@@ -34,7 +34,7 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     latent_dim = AE_params["latent_dim"]
     padding = AE_params["padding"]
     epochs = AE_params["epochs"]
-    batch_size = AE_params["custom_batch_size"]
+    batch_size = AE_params["batch_size"]
 
     scaling_method = myTDRsetup["ScalingMethod"]
 
