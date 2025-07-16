@@ -53,7 +53,7 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     println("batch_size:", batch_size)
 
     conv_output_length = div(timesteps + 2*padding - kernel_size, stride) + 1
-p   rintln("Conv output length: ", conv_output_length)
+    println("Conv output length: ", conv_output_length)
 
     # Encoder and Decoder definition
     encoder_net = Chain(
