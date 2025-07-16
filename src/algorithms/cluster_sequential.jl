@@ -66,7 +66,7 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         x -> permutedims(x, (3,2,1)),   # (T, C, B)
         conv_layer,
         x -> leakyrelu.(x),
-        x -> reshape(permutedims(x, (3,2,1)), size(x, 3), :),  # (B, F*T′)
+        x -> flatten(permutedims(x, (3,2,1))),  # (B, F×T')
         dense_layer                          # (B, latent_dim)
     )
 
