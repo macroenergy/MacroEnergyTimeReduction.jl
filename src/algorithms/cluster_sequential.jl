@@ -66,8 +66,8 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         x -> permutedims(x, (3,2,1)),   # (T, C, B)
         conv_layer,
         x -> leakyrelu.(x),
-        x -> transpose(reshape(permutedims(x, (3,2,1)), size(x, 3), :)),  # (F*T′, B)
-        dense_layer  # Dense expects (input_dim, batch_size)
+        x -> reshape(permutedims(x, (3,2,1)), size(x, 3), :),  # (B, F*T′)
+        dense_layer                          # (B, latent_dim)
     )
 
     decoder_net = Chain(
