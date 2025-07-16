@@ -108,8 +108,6 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
 
             println("Shape of batch_data: ", size(batch_data))
 
-            println(batch_data)
-
             encoded_data = encoder_net(batch_data)
             
             println("Shape of encoded_data: ", size(encoded_data))
