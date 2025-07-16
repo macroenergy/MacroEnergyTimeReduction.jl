@@ -42,6 +42,15 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         batch_size = AE_params["custom_batch_size"]
     end
 
+    println("Autoencoder parameters:")
+    println("input_dim:", input_dim)
+    println("n_filters:", n_filters)
+    println("kernel_size:", kernel_size)
+    println("stride:", stride)
+    println("latent_dim:", latent_dim)
+    println("padding:", padding)
+    println("epochs:", epochs)
+    println("batch_size:", batch_size)
 
     # Encoder and Decoder definition
     encoder_net = Chain(
