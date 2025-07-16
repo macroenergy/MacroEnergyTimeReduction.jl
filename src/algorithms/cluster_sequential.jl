@@ -52,22 +52,21 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     println("epochs:", epochs)
     println("batch_size:", batch_size)
 
-    # Create dummy input to calculate flattened size
-    dummy_input = rand(Float32, batch_size, input_dim, timesteps)
-    conv_layer = Conv((kernel_size,), input_dim=>n_filters; stride=stride, pad=padding)
-
-    tmp = conv_layer(permutedims(dummy_input, (3,2,1)))  # (T', F, B)
-    flattened_size = prod(size(tmp)) ÷ size(tmp, 3)  # divide by batch size
-
-    dense_layer = Dense(flattened_size, latent_dim)
-
     # Encoder and Decoder definition
     encoder_net = Chain(
-        x -> permutedims(x, (3,2,1)),   # (T, C, B)
-        conv_layer,
-        x -> leakyrelu.(x),
-        x -> flatten(permutedims(x, (3,2,1))),  # (B, F×T')
-        dense_layer                          # (B, latent_dim)
+        x -> begin
+            x_cwn = permutedims(x, (3, 2, 1))
+            y = Conv((kernel_size,), input_dim=>n_filters; stride=(stride,), pad=(padding,))(x_cwn)
+            y_ncw = permutedims(y, (3, 2, 1))
+            z = leakyrelu.(y_ncw)
+            flatten_y = flatten(permutedims(z, (3, 2, 1)))
+
+
+            println("Shape of flatten_y: ", size(flatten_y))
+
+
+            return Dense(size(flatten_y, 1), latent_dim)(flatten_y)
+        end
     )
 
     decoder_net = Chain(
