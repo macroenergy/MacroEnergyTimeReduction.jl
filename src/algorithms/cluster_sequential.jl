@@ -3,18 +3,16 @@
 
 Get representative periods using cluster centers from k means on autoencoder latent space
 """
-
 function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
 
     # Convert to matrix and transpose so each row = one time series
     data_matrix = Matrix(ClusteringInputDF)'
-    println("Size after transpose: ", size(data_matrix))  # should be (n_series, timesteps)
+    println("Size after transpose: ", size(data_matrix))
 
     # Sanity check
     n_series, timesteps = size(data_matrix)
 
     # Reshape into (N, C, T) → Flux expects batch first
-    # We'll use 1 channel (C = 1) since this is univariate
     data_ncw = reshape(Float32.(data_matrix), n_series, 1, timesteps)
     println("Size after reshape to (N, C, T): ", size(data_ncw))
 
@@ -27,40 +25,33 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     latent_dim = AE_params["latent_dim"]
     padding = AE_params["padding"]
     epochs = AE_params["epochs"]
-
     scaling_method = myTDRsetup["ScalingMethod"]
 
-    if scaling_method == "N"
-        decoder_activation = sigmoid  # sigmoid for normalized (0–1)
+    decoder_activation = if scaling_method == "N"
+        sigmoid
     elseif scaling_method == "S"
-        decoder_activation = identity  # linear (no activation) for standardized (mean 0, std 1)
+        identity
     else
         error("Unsupported ScalingMethod. Use 'N' for normalization or 'S' for standardization.")
     end
 
     println("Autoencoder parameters:")
-    println("input_dim:", input_dim)
-    println("n_filters:", n_filters)
-    println("kernel_size:", kernel_size)
-    println("stride:", stride)
-    println("latent_dim:", latent_dim)
-    println("padding:", padding)
-    println("epochs:", epochs)
+    println("input_dim:", input_dim, ", n_filters:", n_filters, ", kernel_size:", kernel_size, ", stride:", stride, ", latent_dim:", latent_dim, ", padding:", padding, ", epochs:", epochs)
 
-    timesteps = size(data_ncw, 3)
     conv_output_length = div(timesteps + 2 * padding - kernel_size, stride) + 1
     println("Conv output length: ", conv_output_length)
-
     flattened_dim = n_filters * conv_output_length
 
-    #Define encoder and decoder function
+    # --- MODIFICATION START ---
+
+    # 1. Define encoder and decoder as separate chains for clarity
     encoder_net = Chain(
-        x -> permutedims(x, (3, 2, 1)),  # (N, 1, T) → (T, 1, N)
+        x -> permutedims(x, (3, 2, 1)),
         Conv((kernel_size,), input_dim => n_filters; stride=stride, pad=padding),
-        x -> permutedims(x, (3, 2, 1)),  # back to (N, F, T')
-        x -> leakyrelu.(x),
-        x -> reshape(x, size(x, 1), :),  # flatten: (data_size, flatten_dim)
-        x -> x',                         # transpose to (flatten_dim)
+        x -> permutedims(x, (3, 2, 1)),
+        leakyrelu,
+        x -> reshape(x, size(x, 1), :),
+        x -> x',
         Dense(flattened_dim, latent_dim)
     )
 
@@ -68,85 +59,90 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         Dense(latent_dim, input_dim * timesteps),
         decoder_activation,
         x -> begin
-            bsz = size(x, 2)  # number of samples
-            reshape(x, (bsz, input_dim, timesteps))  # reshape to (data_size, 1, T)
+            bsz = size(x, 2)
+            reshape(x, (bsz, input_dim, timesteps))
         end
     )
 
-    #Train autoencoder
+    # 2. Combine encoder and decoder into a single autoencoder model
+    autoencoder = Chain(encoder_net, decoder_net)
+
+    # 3. Set up the optimizer for the unified model
     opt = ADAM()
+    opt_state = Flux.setup(opt, autoencoder)
+
+    # Train autoencoder
     losses = Float32[]
+    threshold = 1e-5
+    patience = 5
+    wait = 0
 
-    threshold = 1e-5    # Stop if loss change < threshold
-    patience = 5        # Allow some tolerance before stopping
-    wait = 0            # How many epochs we've waited
-
-    ps = Flux.params(encoder_net, decoder_net)
-    st = Flux.setup(opt, ps)
-
+    println("\nStarting Autoencoder Training...")
     for epoch in 1:epochs
-        # Compute loss and gradients
-        loss, grads = Flux.withgradient(ps) do
-            z = encoder_net(data_ncw)
-            decoded = decoder_net(z)
+        # 4. Compute loss and gradients using the unified model
+        loss, grads = Flux.withgradient(autoencoder) do m
+            # The forward pass `m(data_ncw)` runs data through encoder then decoder
+            decoded = m(data_ncw)
             return mean((decoded .- data_ncw).^2)
         end
-    
-        # Update model parameters
-        Flux.update!(st, ps, grads)
-    
+
+        # 5. Update the unified model's parameters
+        Flux.update!(opt_state, autoencoder, grads[1])
+
         # Track loss
         push!(losses, loss)
-        println("Epoch $epoch/$epochs, Loss: $loss")
-    
+        if v || epoch % 10 == 0 # Print loss every 10 epochs or if verbose
+            println("Epoch $epoch/$epochs, Loss: $loss")
+        end
+
         # Early stopping
-        if epoch > 1 && abs(losses[end] - losses[end-1]) < threshold
+        if epoch > 1 && abs(loss - losses[end-1]) < threshold
             wait += 1
             if wait >= patience
-                println("Early stopping triggered.")
+                println("Early stopping triggered at epoch $epoch.")
                 break
             end
         else
             wait = 0
         end
     end
+    # --- MODIFICATION END ---
 
     println("Autoencoder Training Completed.")
 
-
-    # Convert to matrix and ensure shape is (weeks, latent_dim)
+    # Convert to matrix and ensure shape is (latent_dim, n_series)
     encoded_data_all = encoder_net(data_ncw)
 
     # To perform K Means clustering on encoded data
-    R = kmeans(Matrix(encoded_data_all), NClusters, init=:kmcen)
-    centroids_final = R.centers;
-    labels_final = R.assignments;
+    # Note: K-means expects features in rows, observations in columns.
+    # The output of encoder_net is (latent_dim, n_series), which is correct.
+    R = kmeans(Matrix(encoded_data_all), NClusters; n_iter=nIters, init=:kmcen)
+    centroids_final = R.centers
+    labels_final = R.assignments
 
-    M = []
-    ClusteringInputDF_indices = collect(1:size(ClusteringInputDF, 2));
+    M = Int[] # Ensure M is of type Int
+    ClusteringInputDF_indices = collect(1:n_series)
 
     for i in 1:NClusters
-        cluster_idxs = findall(x -> x == i, labels_final)  # indices of weeks in cluster i
+        cluster_idxs = findall(x -> x == i, labels_final)
         if !isempty(cluster_idxs)
-            cluster_points = encoded_data_all[:, cluster_idxs]  # shape: (latent_dim, num_points)
-            centroid = centroids_final[:, i]  # shape: (latent_dim,)
-            dists = [euclidean(cluster_points[:, j], centroid) for j in 1:length(cluster_idxs)]
+            cluster_points = encoded_data_all[:, cluster_idxs]
+            centroid = centroids_final[:, i]
+            dists = [euclidean(cluster_points[:, j], centroid) for j in 1:size(cluster_points, 2)]
             closest_local_idx = argmin(dists)
             closest_global_idx = cluster_idxs[closest_local_idx]
-            push!(M, ClusteringInputDF_indices[closest_global_idx])  # guaranteed: M[i] ∈ cluster i
+            push!(M, ClusteringInputDF_indices[closest_global_idx])
         else
-            push!(M, -1)  # fallback if a cluster is empty (shouldn’t happen)
+            # This case is unlikely but good to handle
+            println("Warning: Cluster $i is empty.")
         end
     end
 
     # Compute outputs
-    ClusteringInputDF_T = Matrix(ClusteringInputDF)'; 
-
-    A = labels_final;
-    W = [count(==(i), A) for i in 1:NClusters];
-
-    # Correct distance matrix computation
-    DistMatrix = pairwise(Euclidean(), Matrix(ClusteringInputDF_T), dims=2);
+    ClusteringInputDF_T = Matrix(ClusteringInputDF)'
+    A = labels_final
+    W = [count(==(i), A) for i in 1:NClusters]
+    DistMatrix = pairwise(Euclidean(), ClusteringInputDF_T, dims=2)
 
     println("Sequential autoencoder approach completed successfully.")
 
