@@ -93,7 +93,7 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         end
 
         # Compute gradients and update using setup state
-        grads = gradient(loss_fn, ps)
+        grads = gradient(() -> loss_fn(), ps)
         Flux.update!(st, ps, grads)
 
         # Compute and record current loss
