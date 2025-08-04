@@ -27,7 +27,6 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     latent_dim = AE_params["latent_dim"]
     padding = AE_params["padding"]
     epochs = AE_params["epochs"]
-    batch_size = AE_params["batch_size"]
 
     scaling_method = myTDRsetup["ScalingMethod"]
 
@@ -47,7 +46,6 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     println("latent_dim:", latent_dim)
     println("padding:", padding)
     println("epochs:", epochs)
-    println("batch_size:", batch_size)
 
     timesteps = size(data_ncw, 3)
     conv_output_length = div(timesteps + 2 * padding - kernel_size, stride) + 1
@@ -61,8 +59,8 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         Conv((kernel_size,), input_dim => n_filters; stride=stride, pad=padding),
         x -> permutedims(x, (3, 2, 1)),  # back to (N, F, T')
         x -> leakyrelu.(x),
-        x -> reshape(x, size(x, 1), :),  # flatten: (batch_size, flatten_dim)
-        x -> x',                         # transpose to (flatten_dim, batch)
+        x -> reshape(x, size(x, 1), :),  # flatten: (data_size, flatten_dim)
+        x -> x',                         # transpose to (flatten_dim)
         Dense(flattened_dim, latent_dim)
     )
 
@@ -70,8 +68,8 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         Dense(latent_dim, input_dim * timesteps),
         decoder_activation,
         x -> begin
-            bsz = size(x, 2)  # number of samples in current batch
-            reshape(x, (bsz, input_dim, timesteps))  # reshape to (batch_size, 1, T)
+            bsz = size(x, 2)  # number of samples
+            reshape(x, (bsz, input_dim, timesteps))  # reshape to (data_size, 1, T)
         end
     )
 
