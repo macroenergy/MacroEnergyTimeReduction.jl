@@ -9,7 +9,6 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     data_matrix = Matrix(ClusteringInputDF)'
     println("Size after transpose: ", size(data_matrix))
 
-    # Sanity check
     n_series, timesteps = size(data_matrix)
 
     # Reshape into (N, C, T) → Flux expects batch first
@@ -42,9 +41,7 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     println("Conv output length: ", conv_output_length)
     flattened_dim = n_filters * conv_output_length
 
-    # --- MODIFICATION START ---
-
-    # 1. Define encoder and decoder as separate chains for clarity
+    # Define encoder and decoder as separate chains
     encoder_net = Chain(
         x -> permutedims(x, (3, 2, 1)),
         Conv((kernel_size,), input_dim => n_filters; stride=stride, pad=padding),
@@ -64,10 +61,10 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
         end
     )
 
-    # 2. Combine encoder and decoder into a single autoencoder model
+    # Combine encoder and decoder into a single autoencoder model
     autoencoder = Chain(encoder_net, decoder_net)
 
-    # 3. Set up the optimizer for the unified model
+    # Set up the optimizer for the unified model
     opt = ADAM()
     opt_state = Flux.setup(opt, autoencoder)
 
@@ -106,7 +103,6 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
             wait = 0
         end
     end
-    # --- MODIFICATION END ---
 
     println("Autoencoder Training Completed.")
 
@@ -114,35 +110,35 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     encoded_data_all = encoder_net(data_ncw)
 
     # To perform K Means clustering on encoded data
-    # Note: K-means expects features in rows, observations in columns.
-    # The output of encoder_net is (latent_dim, n_series), which is correct.
-    R = kmeans(Matrix(encoded_data_all), NClusters; n_iter=nIters, init=:kmcen)
-    centroids_final = R.centers
-    labels_final = R.assignments
+    R = kmeans(Matrix(encoded_data_all), NClusters, init=:kmcen)
+    centroids_final = R.centers;
+    labels_final = R.assignments;
 
-    M = Int[] # Ensure M is of type Int
-    ClusteringInputDF_indices = collect(1:n_series)
+    M = []
+    ClusteringInputDF_indices = collect(1:size(ClusteringInputDF, 2));
 
     for i in 1:NClusters
         cluster_idxs = findall(x -> x == i, labels_final)
         if !isempty(cluster_idxs)
             cluster_points = encoded_data_all[:, cluster_idxs]
             centroid = centroids_final[:, i]
-            dists = [euclidean(cluster_points[:, j], centroid) for j in 1:size(cluster_points, 2)]
+            dists = [euclidean(cluster_points[:, j], centroid) for j in 1:length(cluster_idxs)]
             closest_local_idx = argmin(dists)
             closest_global_idx = cluster_idxs[closest_local_idx]
             push!(M, ClusteringInputDF_indices[closest_global_idx])
         else
-            # This case is unlikely but good to handle
-            println("Warning: Cluster $i is empty.")
+            push!(M, -1)
         end
     end
 
     # Compute outputs
-    ClusteringInputDF_T = Matrix(ClusteringInputDF)'
-    A = labels_final
-    W = [count(==(i), A) for i in 1:NClusters]
-    DistMatrix = pairwise(Euclidean(), ClusteringInputDF_T, dims=2)
+    ClusteringInputDF_T = Matrix(ClusteringInputDF)'; 
+
+    A = labels_final;
+    W = [count(==(i), A) for i in 1:NClusters];
+
+    # Correct distance matrix computation
+    DistMatrix = pairwise(Euclidean(), Matrix(ClusteringInputDF_T), dims=2);
 
     println("Sequential autoencoder approach completed successfully.")
 
