@@ -81,6 +81,9 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     patience = 5        # Allow some tolerance before stopping
     wait = 0            # How many epochs we've waited
 
+    ps = Flux.params(encoder_net, decoder_net)
+    st = Flux.setup(opt, ps)
+
     for epoch in 1:epochs
         # Define dynamic loss function (fresh forward pass each time)
         function loss_fn()
@@ -89,9 +92,9 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
             return mean((decoded .- data_ncw).^2)
         end
 
-        # Compute gradients and update
-        grads = gradient(loss_fn, Flux.params(encoder_net, decoder_net))
-        Flux.update!(opt, Flux.params(encoder_net, decoder_net), grads)
+        # Compute gradients and update using setup state
+        grads = gradient(loss_fn, ps)
+        Flux.update!(st, ps, grads)
 
         # Compute and record current loss
         current_loss = loss_fn()
