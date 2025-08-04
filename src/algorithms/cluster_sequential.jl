@@ -85,31 +85,29 @@ function cluster_sequential(myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClu
     st = Flux.setup(opt, ps)
 
     for epoch in 1:epochs
-        # Define dynamic loss function (fresh forward pass each time)
-        function loss_fn()
-            z = encoder_net(data_ncw)          # Encode
-            decoded = decoder_net(z)           # Decode
+        # Compute loss and gradients
+        loss, grads = Flux.withgradient(ps) do
+            z = encoder_net(data_ncw)
+            decoded = decoder_net(z)
             return mean((decoded .- data_ncw).^2)
         end
-
-        # Compute gradients and update using setup state
-        grads = gradient(() -> loss_fn(), ps)
+    
+        # Update model parameters
         Flux.update!(st, ps, grads)
-
-        # Compute and record current loss
-        current_loss = loss_fn()
-        push!(losses, current_loss)
-        println("Epoch $epoch/$epochs, Loss: $current_loss")
-
-        # Check stopping condition
-        if epoch > 1 && abs(current_loss - losses[end-1]) < threshold
+    
+        # Track loss
+        push!(losses, loss)
+        println("Epoch $epoch/$epochs, Loss: $loss")
+    
+        # Early stopping
+        if epoch > 1 && abs(losses[end] - losses[end-1]) < threshold
             wait += 1
             if wait >= patience
-                println("Early stopping: loss change below threshold $threshold for $patience epochs.")
+                println("Early stopping triggered.")
                 break
             end
         else
-            wait = 0  # reset wait counter if improvement found
+            wait = 0
         end
     end
 
