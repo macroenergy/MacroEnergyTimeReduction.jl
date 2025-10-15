@@ -3,20 +3,22 @@
 
 Get representative periods using cluster centers from various algorithms
 """
-function cluster(myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
+function cluster(inpath::String, myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
 
     if v
         println("Shape of ClusteringInputDF: ", size(ClusteringInputDF))  #number of rows number of colummn
     end
     
     if ClusterMethod == "kmeans"
-        R, A, W, M, DistMatrix = cluster_kmeans(ClusteringInputDF, NClusters, nIters, v)
+        R, A, W, M, DistMatrix, clustering_time = cluster_kmeans(ClusteringInputDF, NClusters, nIters, true)
+        autoencoder_training_time = "NA"
     elseif ClusterMethod == "kmedoids"
-        R, A, W, M, DistMatrix = cluster_kmedoids(ClusteringInputDF, NClusters, nIters, v)
-    elseif ClusterMethod == "sequential"
-        R, A, W, M, DistMatrix = cluster_sequential(myTDRsetup, ClusteringInputDF, NClusters, nIters, v)
-    elseif ClusterMethod == "simultaneous"
-        R, A, W, M, DistMatrix = cluster_simultaneous(ClusteringInputDF, NClusters, nIters, v)
+        R, A, W, M, DistMatrix, clustering_time = cluster_kmedoids(ClusteringInputDF, NClusters, nIters, v)
+        autoencoder_training_time = "NA"
+    elseif ClusterMethod == "autoencoder_sequential"
+        R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time = cluster_autoencoder_sequential(inpath, myTDRsetup, ClusteringInputDF, NClusters, nIters, true)
+    elseif ClusterMethod == "autoencoder_simultaneous"
+        R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time = cluster_autoencoder_simultaneous(inpath, myTDRsetup, ClusteringInputDF, NClusters, nIters, true)
     else
         error(" -- ERROR: Clustering method $ClusterMethod is not implemented.")
     end
@@ -53,6 +55,6 @@ function cluster(myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::Dat
         println("First 5 rows:\n", DistMatrix[1:min(5, size(DistMatrix, 1)), :])
     end
     
-    return [R, A, W, M, DistMatrix]
+    return [R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time]
     
 end
