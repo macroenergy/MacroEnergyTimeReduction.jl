@@ -4,7 +4,7 @@ using DataFrames
 using StatsBase
 using Clustering
 using Distances
-using CSV
+
 using Random
 using LinearAlgebra
 using Flux
