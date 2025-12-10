@@ -3,7 +3,7 @@
 
 Get representative periods using cluster centers from k means on autoencoder latent space
 """
-function cluster_autoencoder_sequential(inpath::String, myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
+function cluster_autoencoder_sequential(inpath::String, myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; period_idx::Int = 1, v::Bool=false)
 
     #Train autoencoder to minimize reconstruction error of ClusteringInputDF
     #Perform k-means on latent space of trained autoencoder to obtain representative subperiods indexes
@@ -23,7 +23,7 @@ function cluster_autoencoder_sequential(inpath::String, myTDRsetup::Dict, Cluste
     latent_dim = AE_params["latent_dim"]
 
     #Check if autoencoder latent space is already present as dataframe as folder
-    latent_file = joinpath(inpath, "TDR_Autoencoder_Latent_Space_N$(n_filters)_D$(latent_dim).csv")
+    latent_file = joinpath(inpath, "TDR_Autoencoder_Latent_Space_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv")
 
     if isfile(latent_file) && get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
         # Load latent space if available and skip training step
@@ -182,7 +182,7 @@ function cluster_autoencoder_sequential(inpath::String, myTDRsetup::Dict, Cluste
         
 
         ################## Export stats ##################
-        stats_file = joinpath(inpath, "TDR_Autoencoder_Training_Stats.csv")
+        stats_file = joinpath(inpath, "TDR_Autoencoder_Training_Stats_Period_$(period_idx).csv")
         df_stats = DataFrame(
             N_Filters = [n_filters],
             Laten_Dim = [latent_dim],

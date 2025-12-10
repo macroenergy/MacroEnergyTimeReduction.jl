@@ -4,7 +4,7 @@
 Get representative periods using cluster centers from kmedoids
 """
 
-function cluster_kmedoids(ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
+function cluster_kmedoids(ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; v::Bool=false)
 
     DistMatrix = pairwise(Euclidean(), Matrix(ClusteringInputDF), dims=2)
 

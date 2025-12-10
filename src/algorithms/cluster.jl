@@ -3,22 +3,22 @@
 
 Get representative periods using cluster centers from various algorithms
 """
-function cluster(inpath::String, myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int, v::Bool=false)
+function cluster(inpath::String, myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; period_idx::Int = 1, v::Bool=false)
 
     if v
         println("Shape of ClusteringInputDF: ", size(ClusteringInputDF))  #number of rows number of colummn
     end
     
     if ClusterMethod == "kmeans"
-        R, A, W, M, DistMatrix, clustering_time = cluster_kmeans(ClusteringInputDF, NClusters, nIters, true)
+        R, A, W, M, DistMatrix, clustering_time = cluster_kmeans(ClusteringInputDF, NClusters, nIters; v=v)
         autoencoder_training_time = "NA"
     elseif ClusterMethod == "kmedoids"
-        R, A, W, M, DistMatrix, clustering_time = cluster_kmedoids(ClusteringInputDF, NClusters, nIters, v)
+        R, A, W, M, DistMatrix, clustering_time = cluster_kmedoids(ClusteringInputDF, NClusters, nIters; v=v)
         autoencoder_training_time = "NA"
     elseif ClusterMethod == "autoencoder_sequential"
-        R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time = cluster_autoencoder_sequential(inpath, myTDRsetup, ClusteringInputDF, NClusters, nIters, true)
+        R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time = cluster_autoencoder_sequential(inpath, myTDRsetup, ClusteringInputDF, NClusters, nIters; period_idx = period_idx, v=v)
     elseif ClusterMethod == "autoencoder_simultaneous"
-        R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time = cluster_autoencoder_simultaneous(inpath, myTDRsetup, ClusteringInputDF, NClusters, nIters, true)
+        R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time = cluster_autoencoder_simultaneous(inpath, myTDRsetup, ClusteringInputDF, NClusters, nIters; period_idx = period_idx, v=v)
     else
         error(" -- ERROR: Clustering method $ClusterMethod is not implemented.")
     end
