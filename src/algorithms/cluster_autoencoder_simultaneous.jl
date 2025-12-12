@@ -137,7 +137,7 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
                 z_epoch = (z_raw .- mean(z_raw; dims=2)) ./ (std(z_raw; dims=2) .+ 1f-8)
 
                 # --- run KMeans on normalized latent space each epoch ---
-                R, A, W, M, _, _ = cluster_kmeans(DataFrame(z_epoch, :auto), NClusters, nIters, false)
+                R, A, W, M, _, _ = cluster_kmeans(DataFrame(z_epoch, :auto), NClusters, nIters; v=v)
 
                 # --- rebuild representative series in input space ---
                 rep_profiles = InputDF[:, M]  # columns of representative weeks
@@ -248,7 +248,7 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
     println("Performing kmeans clustering on latent space")
 
     R, A, W, M, DistMatrix, clustering_time =
-    cluster_kmeans(DataFrame(z, :auto), NClusters, nIters, v)
+    cluster_kmeans(DataFrame(z, :auto), NClusters, nIters; v=v)
 
     rep_profiles = InputDF[:, M]  # columns of representative weeks
     reconstructed_series = hcat([rep_profiles[:, A[j]] for j in 1:length(A)]...)

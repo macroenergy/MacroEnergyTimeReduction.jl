@@ -205,7 +205,7 @@ function cluster_autoencoder_sequential(inpath::String, myTDRsetup::Dict, Cluste
     println("Performing kmeans clustering on latent space")
 
     R, A, W, M, DistMatrix, clustering_time =
-    cluster_kmeans(DataFrame(z, :auto), NClusters, nIters, v)
+    cluster_kmeans(DataFrame(z, :auto), NClusters, nIters; v=v)
 
     println("Autoencoder approach completed successfully.")
 
