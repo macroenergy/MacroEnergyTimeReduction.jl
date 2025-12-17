@@ -3,7 +3,7 @@
 
 Get representative periods using cluster centers from k means on autoencoder latent space
 """
-function cluster_autoencoder_sequential(inpath::String, myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; period_idx::Int = 1, v::Bool=false)
+function cluster_autoencoder_sequential(inpath, myTDRsetup::Dict, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; period_idx::Int = 1, v::Bool=false)
 
     #Train autoencoder to minimize reconstruction error of ClusteringInputDF
     #Perform k-means on latent space of trained autoencoder to obtain representative subperiods indexes
