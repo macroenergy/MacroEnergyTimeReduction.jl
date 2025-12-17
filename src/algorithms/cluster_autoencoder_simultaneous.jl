@@ -27,13 +27,22 @@ function cluster_autoencoder_simultaneous(inpath, myTDRsetup::Dict, ClusteringIn
     # Load input DF of shape: (T * n resources, NWeeks)
     InputDF = Float32.(Matrix(ClusteringInputDF))                 # (T * n, NWeeks)
 
-    #Check if autoencoder latent space is already present as dataframe as folder
-    latent_file = joinpath(inpath, "TDR_Simultaneous_Autoencoder_Latent_Space_Lambda$(lambda)_W$(NClusters)_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv")
+    # Check if autoencoder latent space is already present as dataframe as folder
+    # Construct latent file path only if inpath exists
+    latent_file =
+        inpath === nothing ? nothing :
+        joinpath(
+            inpath,
+            "TDR_Simultaneous_Autoencoder_Latent_Space_" *
+            "Lambda$(lambda)_W$(NClusters)_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv"
+    )
 
-    if isfile(latent_file) && get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
-        # Load latent space if available and skip training step
+    if latent_file !== nothing &&
+        isfile(latent_file) &&
+        get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
+
         z_df = CSV.read(latent_file, DataFrame)
-        z = Matrix(z_df) |> x -> Float32.(x)
+        z = Float32.(Matrix(z_df))
         autoencoder_training_time = "Using Existing Autoencoder Latent Space"
 
         if v

@@ -22,12 +22,21 @@ function cluster_autoencoder_sequential(inpath, myTDRsetup::Dict, ClusteringInpu
     latent_dim = AE_params["latent_dim"]
 
     #Check if autoencoder latent space is already present as dataframe as folder
-    latent_file = joinpath(inpath, "TDR_Autoencoder_Latent_Space_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv")
+    latent_file =
+        inpath === nothing ? nothing :
+        joinpath(
+            inpath,
+            "TDR_Autoencoder_Latent_Space_" *
+            "N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv"
+        )
 
-    if isfile(latent_file) && get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
+    if latent_file !== nothing &&
+    isfile(latent_file) &&
+    get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
+
         # Load latent space if available and skip training step
         z_df = CSV.read(latent_file, DataFrame)
-        z = Matrix(z_df) |> x -> Float32.(x)
+        z = Float32.(Matrix(z_df))
         autoencoder_training_time = "Using Existing Autoencoder Latent Space"
 
         if v
