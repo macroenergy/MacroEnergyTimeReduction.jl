@@ -31,8 +31,8 @@ function cluster_autoencoder_sequential(inpath, myTDRsetup::Dict, ClusteringInpu
         )
 
     if latent_file !== nothing &&
-    isfile(latent_file) &&
-    get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
+        isfile(latent_file) &&
+        get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
 
         # Load latent space if available and skip training step
         z_df = CSV.read(latent_file, DataFrame)

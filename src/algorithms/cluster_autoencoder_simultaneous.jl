@@ -136,17 +136,19 @@ function cluster_autoencoder_simultaneous(inpath, myTDRsetup::Dict, ClusteringIn
 
         if v
             println("\nStarting Autoencoder Training...")
-        end
 
-        loss_log_file = joinpath(inpath, "TDR_Autoencoder_Loss_Curves_Lambda$(lambda)_W$(NClusters)_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv")
+            loss_log_file = joinpath(inpath, "TDR_Autoencoder_Loss_Curves_Lambda$(lambda)_W$(NClusters)_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv")
 
-        # initialize CSV file if not present
-        if !isfile(loss_log_file)
-            df_init = DataFrame(Epoch=Int[], Recon=Float64[], Cluster=Float64[], Combined=Float64[])
-            if v
-                CSV.write(loss_log_file, df_init)
+            # initialize CSV file if not present
+            if !isfile(loss_log_file)
+                df_init = DataFrame(Epoch=Int[], Recon=Float64[], Cluster=Float64[], Combined=Float64[])
+                if v
+                    CSV.write(loss_log_file, df_init)
+                end
             end
+    
         end
+
 
         autoencoder_training_time = @elapsed begin
 
