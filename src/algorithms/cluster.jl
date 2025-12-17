@@ -3,7 +3,7 @@
 
 Get representative periods using cluster centers from various algorithms
 """
-function cluster(inpath::String, myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; period_idx::Int = 1, v::Bool=false)
+function cluster(inpath, myTDRsetup::Dict, ClusterMethod::String, ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; period_idx::Int = 1, v::Bool=false)
 
     if v
         println("Shape of ClusteringInputDF: ", size(ClusteringInputDF))  #number of rows number of colummn
