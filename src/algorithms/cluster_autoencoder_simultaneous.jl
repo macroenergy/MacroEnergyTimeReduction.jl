@@ -185,17 +185,16 @@ function cluster_autoencoder_simultaneous(inpath, myTDRsetup::Dict, ClusteringIn
                 push!(losses, loss)
 
                 # logging + CSV output
-                if epoch % 200 == 0
+                if v && epoch % 200 == 0
                     println("Epoch $epoch/$epochs, Recon: $(round(recon_loss, digits=6)), ","Cluster: $(round(cluster_loss, digits=6)), ","Combined: $(round(loss, digits=6))")
 
                     df_log = DataFrame(Epoch=[epoch],
                                     Recon=[Float64(recon_loss)],
                                     Cluster=[Float64(cluster_loss)],
                                     Combined=[Float64(loss)])
-                    if v                
-                        open(loss_log_file, "a") do io
-                            CSV.write(io, df_log; append=true, header=false)
-                        end
+              
+                    open(loss_log_file, "a") do io
+                        CSV.write(io, df_log; append=true, header=false)
                     end
                 end
 
