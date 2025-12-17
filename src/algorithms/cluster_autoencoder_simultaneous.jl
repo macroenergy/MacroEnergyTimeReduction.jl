@@ -32,12 +32,14 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
 
     if isfile(latent_file) && get(myTDRsetup, "ForceAutoencoderTraining", 0) != 1
         # Load latent space if available and skip training step
-        println("Found latent space for W=$(NClusters), N=$(n_filters), D=$(latent_dim) — skipping autoencoder training.")
         z_df = CSV.read(latent_file, DataFrame)
         z = Matrix(z_df) |> x -> Float32.(x)
-
-        println("Size of z: ", size(z))
         autoencoder_training_time = "Using Existing Autoencoder Latent Space"
+
+        if v
+            println("Found latent space for W=$(NClusters), N=$(n_filters), D=$(latent_dim) — skipping autoencoder training.")
+            println("Size of z: ", size(z))
+        end
 
     else
         # Train autoencoder if latent space is unavailable
@@ -58,13 +60,13 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
         n = size(InputDF,1) ÷ timesteps                               # n resources, which corresponds to the channels C in AE
         input_dim = n
 
-        
-
         # Reshape rows into tensor (T, C, NWeeks)
         #T = TimestepsPerRepPeriod, C = Channels (same as number of resources n), NWeeks = Weeks
         encoder_input = reshape(InputDF, timesteps, n, Nweeks)       # (T, C, NWeeks)
-        println("Autoencoder Input (T, C, NWeeks) = ", size(encoder_input))
 
+        if v
+            println("Autoencoder Input (T, C, NWeeks) = ", size(encoder_input))
+        end
 
         ################## Part 2 -- Define Autoencoder ##################
         # Define seed
@@ -82,8 +84,11 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
         @assert size(tmp,3) > 0 "Conv T_out ≤ 0; adjust kernel/stride/pad."
         T_out = size(tmp, 3)
         flattened_dim  = size(tmp, 2) * T_out
-        println("T_out = ", T_out)
-        println("Flattened dimension = ", flattened_dim) 
+
+        if v
+            println("T_out = ", T_out)
+            println("Flattened dimension = ", flattened_dim)
+        end
 
         # Define encoder and decoder as separate chains
         encoder_net = Chain(
@@ -101,9 +106,10 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
         # Combine encoder and decoder into a single autoencoder model
         autoencoder = Chain(encoder_net, decoder_net)
 
-        println("Autoencoder parameters:")
-        println("input_dim:", input_dim, ", lambda", lambda, ", n_filters:", n_filters, ", kernel_size:", kernel_size, ", stride:", stride, ", latent_dim:", latent_dim, ", epochs:", epochs)
-
+        if v
+            println("Autoencoder parameters:")
+            println("input_dim:", input_dim, ", lambda", lambda, ", n_filters:", n_filters, ", kernel_size:", kernel_size, ", stride:", stride, ", latent_dim:", latent_dim, ", epochs:", epochs)
+        end
 
         ################## Part 3 -- Autoencoder Training ##################
         # Set up the optimizer for the unified model
@@ -119,14 +125,18 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
         best_encoder = deepcopy(encoder_net)
         best_decoder = deepcopy(decoder_net)
 
-        println("\nStarting Autoencoder Training...")
+        if v
+            println("\nStarting Autoencoder Training...")
+        end
 
         loss_log_file = joinpath(inpath, "TDR_Autoencoder_Loss_Curves_Lambda$(lambda)_W$(NClusters)_N$(n_filters)_D$(latent_dim)_Period_$(period_idx).csv")
 
         # initialize CSV file if not present
         if !isfile(loss_log_file)
             df_init = DataFrame(Epoch=Int[], Recon=Float64[], Cluster=Float64[], Combined=Float64[])
-            CSV.write(loss_log_file, df_init)
+            if v
+                CSV.write(loss_log_file, df_init)
+            end
         end
 
         autoencoder_training_time = @elapsed begin
@@ -171,8 +181,10 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
                                     Recon=[Float64(recon_loss)],
                                     Cluster=[Float64(cluster_loss)],
                                     Combined=[Float64(loss)])
-                    open(loss_log_file, "a") do io
-                        CSV.write(io, df_log; append=true, header=false)
+                    if v                
+                        open(loss_log_file, "a") do io
+                            CSV.write(io, df_log; append=true, header=false)
+                        end
                     end
                 end
 
@@ -189,7 +201,9 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
                 elseif epoch > warmup
                     wait += 1
                     if wait >= patience
-                        println("Early stopping at epoch $epoch. Best epoch=$best_epoch, best loss=$best_loss.")
+                        if v
+                            println("Early stopping at epoch $epoch. Best epoch=$best_epoch, best loss=$best_loss.")
+                        end
                         encoder_net = best_encoder
                         decoder_net = best_decoder
                         autoencoder = Chain(encoder_net, decoder_net)
@@ -199,7 +213,9 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
             end
         end
 
-        println("Autoencoder Training Completed.")
+        if v
+            println("Autoencoder Training Completed.")
+        end
 
 
         ################## Part 4 -- Obtain autoencoder latent space ##################
@@ -207,53 +223,55 @@ function cluster_autoencoder_simultaneous(inpath::String, myTDRsetup::Dict, Clus
         encoded_data_all = encoder_net(encoder_input)                   # (latent, N)
         z = (encoded_data_all .- mean(encoded_data_all; dims=2)) ./ (std(encoded_data_all; dims=2) .+ 1f-8)
 
-        println("Size of z: ", size(z))
-
-        # Save latent space to input path
-        z_df = DataFrame(z, :auto)
-        CSV.write(latent_file, z_df)
-        println("Saved latent space to $latent_file")
-
         ################## Part 5 -- Output autoencoder results to desktop for debugging ##################
-        # Encode and decode the entire dataset
-        decoded_all = decoder_net(encoded_data_all)
-        println("Autoencoder Output (T x C, Nweeks) = ", size(decoded_all)) 
-        
-        loss_mean = mean((decoded_all .- InputDF).^2)
-        println("Reconstruction RMSE: ", loss_mean)
-        
+        if v
+            println("Size of z: ", size(z))
 
-        ################## Export stats ##################
-        stats_file = joinpath(inpath, "TDR_Autoencoder_Training_Stats_Period_$(period_idx).csv")
-        df_stats = DataFrame(
-            N_Filters = [n_filters],
-            Laten_Dim = [latent_dim],
-            Kernel_Size = [kernel_size],
-            Stride = [stride],
-            Autoencoder_Training_Time = [autoencoder_training_time],
-            Best_Epoch = [best_epoch],
-            Best_Loss = [best_loss],
-        )
+            # Save latent space to input path
+            z_df = DataFrame(z, :auto)
+            CSV.write(latent_file, z_df)
+            println("Saved latent space to $latent_file")
+            
+            # Encode and decode the entire dataset
+            decoded_all = decoder_net(encoded_data_all)
+            println("Autoencoder Output (T x C, Nweeks) = ", size(decoded_all)) 
+            
+            loss_mean = mean((decoded_all .- InputDF).^2)
+            println("Reconstruction RMSE: ", loss_mean)
+            
+            ################## Export stats ##################
+            stats_file = joinpath(inpath, "TDR_Autoencoder_Training_Stats_Period_$(period_idx).csv")
+            df_stats = DataFrame(
+                N_Filters = [n_filters],
+                Laten_Dim = [latent_dim],
+                Kernel_Size = [kernel_size],
+                Stride = [stride],
+                Autoencoder_Training_Time = [autoencoder_training_time],
+                Best_Epoch = [best_epoch],
+                Best_Loss = [best_loss],
+            )
 
-        if isfile(stats_file)
-            old = CSV.read(stats_file, DataFrame)
-            df_stats = vcat(old, df_stats; cols=:union)
+            if isfile(stats_file)
+                old = CSV.read(stats_file, DataFrame)
+                df_stats = vcat(old, df_stats; cols=:union)
+            end
+            CSV.write(stats_file, df_stats)
+            println("Autoencoder stats written to: $stats_file")
         end
-        CSV.write(stats_file, df_stats)
-        println("Autoencoder stats written to: $stats_file")
 
     end
 
     ################## Part 6 -- Kmeans clustering on latent space ##################
-    println("Performing kmeans clustering on latent space")
-
     R, A, W, M, DistMatrix, clustering_time =
     cluster_kmeans(DataFrame(z, :auto), NClusters, nIters; v=v)
 
     rep_profiles = InputDF[:, M]  # columns of representative weeks
     reconstructed_series = hcat([rep_profiles[:, A[j]] for j in 1:length(A)]...)
 
-    println("Simultaneous autoencoder approach completed successfully.")
+    if v
+        println("Performing kmeans clustering on latent space")
+        println("Simultaneous autoencoder approach completed successfully.")
+    end
 
     return R, A, W, M, DistMatrix, autoencoder_training_time, clustering_time
 end
