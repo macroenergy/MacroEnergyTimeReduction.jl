@@ -3,29 +3,28 @@
 
 Get representative periods using cluster centers from kmeans
 """
-    
 function cluster_kmeans(ClusteringInputDF::DataFrame, NClusters::Int, nIters::Int; v::Bool=false)
+    X = Matrix(ClusteringInputDF)
+    DistMatrix = pairwise(Euclidean(), X, dims=2)
 
-    DistMatrix = pairwise(Euclidean(), Matrix(ClusteringInputDF), dims=2)
-
-    rng = MersenneTwister(42)   # local RNG
+    rng = MersenneTwister(42)
 
     clustering_time = @elapsed begin
-        R = kmeans(Matrix(ClusteringInputDF), NClusters; rng=rng, init=:kmpp)
+        R = kmeans(X, NClusters; rng=rng, init=:kmpp)
 
-        best = nothing
-        best_cost = Inf
+        best = R
+        best_cost = R.totalcost
         no_improve = 0
-        patience = 50   # stop if no improvement for 20 restarts
+        patience = 50
 
         for i in 1:nIters
             rng_i = MersenneTwister(42 + i)
-            R_i = kmeans(Matrix(ClusteringInputDF), NClusters; rng=rng_i, init=:kmpp)
+            R_i = kmeans(X, NClusters; rng=rng_i, init=:kmpp)
         
-            if R_i.totalcost < best_cost - 1e-6   # small tolerance
+            if R_i.totalcost < best_cost - 1e-6
                 best = R_i
                 best_cost = R_i.totalcost
-                no_improve = 0   # reset counter
+                no_improve = 0
             else
                 no_improve += 1
             end
@@ -41,19 +40,46 @@ function cluster_kmeans(ClusteringInputDF::DataFrame, NClusters::Int, nIters::In
         end
         
         R = best
-        A = R.assignments
-        W = R.counts
-        Centers = R.centers
+
+        # Ensure non-empty clusters
+        A = copy(R.assignments)
+        W = copy(R.counts
+        Centers = copy(R.centers)
+
+        empty_clusters = findall(==(0), W)
+
+        for c in empty_clusters
+            donor_candidates = findall(w -> w > 1, W)
+            isempty(donor_candidates) && error("No cluster with count > 1 to donate from.")
+            donor = donor_candidates[argmax(W[donor_candidates])]
+
+            members = findall(a -> a == donor, A)
+            length(members) <= 1 && continue
+
+            cent_d = Centers[:, donor]
+            dists = [euclidean(cent_d, X[:, j]) for j in members]
+            j_move = members[argmax(dists)]
+
+            A[j_move] = c
+            W[donor] -= 1
+            W[c]     += 1
+
+            donor_members = findall(a -> a == donor, A)
+            Centers[:, donor] .= mean(X[:, donor_members]; dims=2)[:]
+
+            c_members = findall(a -> a == c, A)
+            Centers[:, c] .= mean(X[:, c_members]; dims=2)[:]
+        end
+
+        @assert all(W .>= 1) "Some clusters are still empty after repair."
 
         M = Int[]
         chosen = Set{Int}()
         
         for i in 1:NClusters
-            # sort candidates by distance to centroid i
-            dists = [euclidean(Centers[:, i], ClusteringInputDF[!, j]) for j in 1:size(ClusteringInputDF, 2)]
-            candidates = sortperm(dists)  # indices ordered from closest to farthest
+            dists = [euclidean(Centers[:, i], X[:, j]) for j in 1:size(X, 2)]
+            candidates = sortperm(dists)
         
-            # pick first candidate not already chosen
             rep = findfirst(idx -> !(idx in chosen), candidates)
             if rep === nothing
                 error("Could not find a unique representative for cluster $i")
