@@ -43,7 +43,7 @@ function cluster_kmeans(ClusteringInputDF::DataFrame, NClusters::Int, nIters::In
 
         # Ensure non-empty clusters
         A = copy(R.assignments)
-        W = copy(R.counts
+        W = copy(R.counts)
         Centers = copy(R.centers)
 
         empty_clusters = findall(==(0), W)
