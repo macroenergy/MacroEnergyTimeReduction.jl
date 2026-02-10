@@ -1,7 +1,7 @@
 name = "MacroEnergyTimeReduction"
 uuid = "f4afba0d-ee76-4f0d-9e6b-7521d0ede300"
 authors = ["Jun Wen Law <junlaw@mit.edu>", "Louis Cui <>", "Ruaridh Macdonald <rmacd@mit.edu>", "Dharik Mallapragada <dharik@mit.edu>"]
-version = "0.0.0"
+version = "0.0.1"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
