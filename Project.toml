@@ -1,7 +1,7 @@
 name = "MacroEnergyTimeReduction"
 uuid = "f4afba0d-ee76-4f0d-9e6b-7521d0ede300"
-authors = ["Jun Wen Law <junlaw@mit.edu>", "Louis Cui <>", "Ruaridh Macdonald <rmacd@mit.edu>", "Dharik Mallapragada <dharik@mit.edu>"]
 version = "0.0.1"
+authors = ["Jun Wen Law <junlaw@mit.edu>", "Louis Cui <>", "Ruaridh Macdonald <rmacd@mit.edu>", "Dharik Mallapragada <dharik@mit.edu>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -15,6 +15,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
+CSV = "0.10"
 Clustering = "0.15"
 DataFrames = "1"
 Distances = "0.10"
