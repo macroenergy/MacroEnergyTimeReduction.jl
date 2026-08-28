@@ -1,6 +1,6 @@
 name = "MacroEnergyTimeReduction"
 uuid = "f4afba0d-ee76-4f0d-9e6b-7521d0ede300"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Jun Wen Law <junlaw@mit.edu>", "Louis Cui <>", "Ruaridh Macdonald <rmacd@mit.edu>", "Dharik Mallapragada <dharik@mit.edu>"]
 
 [deps]
