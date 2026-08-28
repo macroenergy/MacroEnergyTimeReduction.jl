@@ -37,9 +37,14 @@ end
 
     @testset "k-medoids" begin
         # Regression test for Clustering.jl's current kmedoids keyword API.
-        assert_clustering_result(
-            cluster_kmedoids(CLUSTERING_INPUT, nclusters, 2), nclusters, nperiods,
-        )
+        result = cluster_kmedoids(CLUSTERING_INPUT, nclusters, 2)
+        assert_clustering_result(result, nclusters, nperiods)
+
+        # Seeded k-means++ restart initialization makes results reproducible.
+        repeated_result = cluster_kmedoids(CLUSTERING_INPUT, nclusters, 2)
+        @test result[1].medoids == repeated_result[1].medoids
+        @test result[1].assignments == repeated_result[1].assignments
+        @test result[1].totalcost == repeated_result[1].totalcost
 
         # A zero-restart request still returns the initial clustering result.
         assert_clustering_result(

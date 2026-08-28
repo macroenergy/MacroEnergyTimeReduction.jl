@@ -17,7 +17,11 @@ function cluster_kmedoids(ClusteringInputDF::DataFrame, NClusters::Int, nIters::
         patience = 20   # stop if no improvement for 20 restarts
 
         for i in 1:nIters
-            R_i = kmedoids(DistMatrix, NClusters; init=:kmcen)
+            rng_i = MersenneTwister(42 + i)
+            init_i = Clustering.initseeds_by_costs(
+                :kmpp, DistMatrix, NClusters; rng=rng_i,
+            )
+            R_i = kmedoids(DistMatrix, NClusters; init=init_i)
 
             if R_i.totalcost < best_cost - 1e-6   # small tolerance
                 best = R_i
